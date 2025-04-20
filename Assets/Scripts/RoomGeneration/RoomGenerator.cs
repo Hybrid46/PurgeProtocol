@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Random = UnityEngine.Random;
+using System;
+using Unity.VisualScripting;
 
 public class RoomGenerator : MonoBehaviour
 {
@@ -9,24 +11,31 @@ public class RoomGenerator : MonoBehaviour
     public int gridHeight = 50;
 
     [Header("Room Settings")]
-    public int partitionsX = 10;
-    public int partitionsY = 10;
+    public int minRoomSizeX = 2;
+    public int maxRoomSizeX = 10;
+    public int minRoomSizeY = 2;
+    public int maxRoomSizeY = 10;
 
     [SerializeField] private bool[,] grid;
-    private List<Room> rooms = new List<Room>();
+    [SerializeField] private List<Room> rooms = new List<Room>();
 
-    [SerializeField] private Color[] roomColors;
     private HashSet<Vector2Int> openSet;
+    private HashSet<Vector2Int> walls = new HashSet<Vector2Int>();
 
+    [Serializable]
     private class Room
     {
-        public HashSet<Vector2Int> roomPositions;
+        public HashSet<Vector2Int> coords;
+        public HashSet<Vector2Int> walls;
         public Vector2Int startCoord;
+        public Color color;
 
-        public Room(Vector2Int roomStartPosition)
+        public Room(Vector2Int startPosition)
         {
-            roomPositions = new HashSet<Vector2Int> { roomStartPosition };
-            this.startCoord = roomStartPosition;
+            walls = new HashSet<Vector2Int>();
+            coords = new HashSet<Vector2Int> { startPosition };
+            this.startCoord = startPosition;
+            color = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 0.4f);
         }
     }
 
@@ -53,148 +62,116 @@ public class RoomGenerator : MonoBehaviour
 
     void GenerateRooms()
     {
-        int roomCount = partitionsX * partitionsY;
+        rooms = new List<Room>();
 
-        roomColors = new Color[roomCount];
-        for (int i = 0; i < roomCount; i++)
+        while (openSet.Count > 0)
         {
-            roomColors[i] = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 0.4f);
-        }
+            Vector2Int coord = GetFirstElementFromHashSet(openSet);
+            int width = Random.Range(minRoomSizeX, maxRoomSizeX + 1);
+            int height = Random.Range(minRoomSizeY, maxRoomSizeY + 1);
+            Room room = new Room(coord);
 
-        List<Vector2Int> roomStartCoordinates = RandomPartitionSampling(grid, partitionsX, partitionsY);
-
-        if (roomStartCoordinates.Count == 0)
-        {
-            Debug.LogError("Failed to generate room start coordinates");
-            return;
-        }
-
-        rooms = new List<Room>(roomStartCoordinates.Count);
-
-        foreach (Vector2Int coord in roomStartCoordinates)
-        {
-            rooms.Add(new Room(coord));
+            rooms.Add(room);
             grid[coord.x, coord.y] = true;
             openSet.Remove(coord);
-        }
 
-        ExpandRooms();
+            ExpandRoom(coord, width, height, room);
+        }
     }
 
-    private List<Vector2Int> RandomPartitionSampling(bool[,] grid, int partitionsX, int partitionsY)
+    private void ExpandRoom(Vector2Int coord, int width, int height, Room room)
     {
-        List<Vector2Int> randomStartCoords = new List<Vector2Int>();
+        List<Vector2Int> offsetDirections = GetOffsetDirections();
 
-        int remainderX = grid.GetLength(0) % partitionsX;
-        int remainderY = grid.GetLength(1) % partitionsY;
-        int baseWidth = grid.GetLength(0) / partitionsX;
-        int baseHeight = grid.GetLength(1) / partitionsY;
-
-        for (int xPart = 0; xPart < partitionsX; xPart++)
+        for (int x = 0; x < width; x++)
         {
-            int startX = xPart * baseWidth + Mathf.Min(xPart, remainderX);
-            int width = baseWidth + (xPart < remainderX ? 1 : 0);
-            int endX = startX + width - 1;
-
-            for (int yPart = 0; yPart < partitionsY; yPart++)
+            for (int y = 0; y < height; y++)
             {
-                int startY = yPart * baseHeight + Mathf.Min(yPart, remainderY);
-                int height = baseHeight + (yPart < remainderY ? 1 : 0);
-                int endY = startY + height - 1;
+                Vector2Int offsetedCoord = coord + new Vector2Int(x, y);
 
-                int randomX = Random.Range(startX, endX + 1);
-                int randomY = Random.Range(startY, endY + 1);
+                //bounds check
+                if (!IsWithinGrid(offsetedCoord)) continue;
+                //occupancy check
+                if (grid[offsetedCoord.x, offsetedCoord.y]) continue;
 
-                randomStartCoords.Add(new Vector2Int(randomX, randomY));
+                room.coords.Add(offsetedCoord);
+                grid[offsetedCoord.x, offsetedCoord.y] = true;
+                openSet.Remove(offsetedCoord);
             }
         }
 
-        return randomStartCoords;
-    }
-
-    private void ExpandRooms()
-    {
-        bool expandedAny;
-        do
+        foreach (Vector2Int roomCoord in room.coords)
         {
-            expandedAny = false;
+            //walls
 
-            List<Room> roomsToProcess = new List<Room>(rooms);
-            Shuffle(roomsToProcess);
-
-            foreach (Room room in roomsToProcess)
+            //Is room edge?
+            //if (x == 0 || y == 0 || x == width - 1 || y == height - 1) -> if roomcord has false neighbour or something ....
             {
-                List<Vector2Int> currentPositions = new List<Vector2Int>(room.roomPositions);
-                //Shuffle(currentPositions);
-
-                foreach (Vector2Int pos in currentPositions)
+                //Add walls in all 8 directions
+                foreach (Vector2Int offsetDirection in offsetDirections)
                 {
-                    List<Vector2Int> directions = new List<Vector2Int>
-                    {
-                        new Vector2Int(1, 0),
-                        new Vector2Int(-1, 0),
-                        new Vector2Int(0, 1),
-                        new Vector2Int(0, -1)
-                    };
-                    //Shuffle(directions);
+                    Vector2Int wallCoord = roomCoord + offsetDirection;
 
-                    foreach (Vector2Int dir in directions)
-                    {
-                        Vector2Int newPos = pos + dir;
-                        if (IsWithinGrid(newPos) && openSet.Contains(newPos))
-                        {
-                            room.roomPositions.Add(newPos);
-                            openSet.Remove(newPos);
-                            grid[newPos.x, newPos.y] = true;
-                            expandedAny = true;
-                            break;
-                        }
-                    }
+                    //bounds check
+                    if (!IsWithinGrid(wallCoord)) continue;
+                    //occupancy check
+                    if (grid[wallCoord.x, wallCoord.y]) continue;
 
-                    if (expandedAny)
-                        break;
+                    room.walls.Add(wallCoord);
+                    walls.Add(wallCoord);
+                    grid[wallCoord.x, wallCoord.y] = true;
+                    openSet.Remove(wallCoord);
                 }
-
-                if (expandedAny)
-                    break;
             }
-        } while (expandedAny);
+        }
+    }
+
+    private List<Vector2Int> GetOffsetDirections()
+    {
+        List<Vector2Int> offsetDirections = new List<Vector2Int>(8);
+
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int x = -1; x <= 1; x++)
+            {
+                if (x == 0 && y == 0) continue;
+                offsetDirections.Add(new Vector2Int(x, y));
+            }
+        }
+
+        return offsetDirections;
     }
 
     private bool IsWithinGrid(Vector2Int pos) => pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight;
 
-    private void Shuffle<T>(List<T> list)
+    private bool IsGridEdge(Vector2Int pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
+
+    private T GetFirstElementFromHashSet<T>(HashSet<T> hashSet)
     {
-        for (int i = 0; i < list.Count; i++)
+        foreach (T t in hashSet)
         {
-            int randomIndex = Random.Range(i, list.Count);
-            T temp = list[i];
-            list[i] = list[randomIndex];
-            list[randomIndex] = temp;
+            return t;
         }
+
+        return default;
     }
 
     void OnDrawGizmos()
     {
         if (rooms == null) return;
 
-        int index = 0;
         foreach (Room room in rooms)
         {
-            if (index >= roomColors.Length)
-                break;
+            Gizmos.color = room.color;
 
-            Gizmos.color = roomColors[index];
-            index++;
-
-            foreach (Vector2Int pos in room.roomPositions)
+            foreach (Vector2Int pos in room.coords)
             {
                 Gizmos.DrawCube(new Vector3(pos.x, 0f, pos.y), Vector3.one);
                 Gizmos.DrawWireCube(new Vector3(pos.x, 0f, pos.y), Vector3.one);
             }
 
             Gizmos.color = Color.white;
-            Gizmos.DrawSphere(new Vector3(room.startCoord.x, 2f, room.startCoord.y), 0.5f);
+            Gizmos.DrawSphere(new Vector3(room.startCoord.x, 0f, room.startCoord.y), 0.25f);
         }
     }
 }
