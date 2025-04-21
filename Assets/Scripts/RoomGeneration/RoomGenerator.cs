@@ -185,11 +185,12 @@ public class RoomGenerator : MonoBehaviour
                             }
                         }
 
-                        bool isAttachable = wallNeighbours.Count > 3 && roomNeighbours.Count == 1;
+                        bool isAttachable = roomNeighbours.Count == 1;
 
                         if (isAttachable)
                         {
                             room.walls.Remove(singleOffset);
+                            foreach(Vector2Int wall in wallNeighbours) room.walls.Add(wall);
                             room.coords.Add(singleOffset);
                             wallSet.Remove(singleOffset);
                             roomSet.Add(singleOffset);
