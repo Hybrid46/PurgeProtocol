@@ -67,9 +67,10 @@ public class RoomGenerator : MonoBehaviour
     void Start()
     {
         InitializeGrid();
-        GenerateBorderWalls();
         GenerateRooms();
         foreach (Room room in rooms) room.SetEdges(this);
+
+        //removing doulbe walls
         AttachDoubleWallsToRooms();
         foreach (Room room in rooms) room.SetEdges(this);
     }
@@ -83,23 +84,16 @@ public class RoomGenerator : MonoBehaviour
         {
             for (int y = 0; y < gridHeight; y++)
             {
-                grid[x, y] = false;
-                openSet.Add(new Vector2Int(x, y));
-            }
-        }
-    }
-
-    private void GenerateBorderWalls()
-    {
-        for (int x = 0; x < gridWidth; x++)
-        {
-            for (int y = 0; y < gridHeight; y++)
-            {
+                //is edge? -> generate a border wall
                 if (x == 0 || y == 0 || x == gridWidth - 1 || y == gridHeight - 1)
                 {
                     grid[x, y] = true;
-                    openSet.Remove(new Vector2Int(x, y));
                     wallSet.Add(new Vector2Int(x, y));
+                }
+                else
+                {
+                    grid[x, y] = false;
+                    openSet.Add(new Vector2Int(x, y));
                 }
             }
         }
@@ -208,7 +202,7 @@ public class RoomGenerator : MonoBehaviour
                         if (isAttachable)
                         {
                             room.walls.Remove(singleOffset);
-                            foreach(Vector2Int wall in wallNeighbours) room.walls.Add(wall);
+                            foreach (Vector2Int wall in wallNeighbours) room.walls.Add(wall);
                             room.coords.Add(singleOffset);
                             wallSet.Remove(singleOffset);
                             roomSet.Add(singleOffset);
