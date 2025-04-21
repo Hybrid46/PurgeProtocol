@@ -1,11 +1,13 @@
 # PurgeProtocol
 Robots purging roaches!
 
-##Overview
+## Overview
+
+![map](map.png "Map")
 
 This project is a procedural map generator built in Unity using C#. It creates a grid-based layout of interconnected rooms with walls and doors, ensuring all rooms are accessible via a minimum spanning tree algorithm. The generator supports customizable grid sizes, room dimensions, and door placement rules. The codebase is designed for extensibility, with plans to integrate advanced algorithms like Wave Function Collapse (WFC) and A* pathfinding in the future.
 
-##Features
+## Features
 Current Implementation
 
     Grid-Based Room Generation:
@@ -32,7 +34,7 @@ Current Implementation
 
         HashSets for efficient spatial queries.
 
-##Future Implementations
+## Future Implementations
 1. Wave Function Collapse (WFC)
 
     Goal: Generate more structured or thematic maps using pre-defined tile rules.
@@ -57,7 +59,7 @@ Current Implementation
 
     Optimization: Spatial partitioning (e.g., Quadtree) for large grids.
 
-##Technologies Used
+## Technologies Used
 
     Unity: Core framework for visualization and execution.
 
@@ -71,14 +73,14 @@ Current Implementation
 
     Gizmos: Debug visualization of rooms, walls, and doors.
 
-##Getting Started
-###Prerequisites
+## Getting Started
+### Prerequisites
 
     Unity 2021.3 or later.
 
     Basic understanding of procedural generation concepts.
 
-###Usage
+### Usage
 
     Attach the Script:
 
@@ -99,7 +101,7 @@ Current Implementation
         Use the Scene view to inspect rooms (colored cubes) and doors (blue cubes).
 
 
-###Code Structure
+### Code Structure
 
     Room Class: Stores room coordinates, walls, doors, and debug color.
 
@@ -115,9 +117,9 @@ Current Implementation
 
         AttachDoubleWallsToRooms(): Smooths room edges.
 
-##Contributing
+## Contributing
 
-###Contributions are welcome! Open issues or PRs for:
+### Contributions are welcome! Open issues or PRs for:
 
     Implementing WFC or A*.
 
@@ -125,8 +127,8 @@ Current Implementation
 
     Adding 3D visualization.
 
-##License
+## License
 
 MIT License. See LICENSE for details.
 
-###Let’s build something awesome together! 🚀
+### Let’s build something awesome together! 🚀
