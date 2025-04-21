@@ -14,6 +14,7 @@ public class RoomGenerator : MonoBehaviour
     public int maxRoomSizeX = 10;
     public int minRoomSizeY = 2;
     public int maxRoomSizeY = 10;
+    [Range(0f, 1f)] public float extraDoorChance = 0.0f;
 
     private bool[,] grid;
     private List<Room> rooms = new List<Room>();
@@ -21,21 +22,26 @@ public class RoomGenerator : MonoBehaviour
     private HashSet<Vector2Int> openSet;
     private HashSet<Vector2Int> wallSet = new HashSet<Vector2Int>();
     private HashSet<Vector2Int> roomSet = new HashSet<Vector2Int>();
+    private HashSet<Vector2Int> doorSet = new HashSet<Vector2Int>();
 
     private HashSet<Vector2Int> removedDoubleWalls;
 
-    [Serializable]
+    //TODO store on grid
+    private Dictionary<Vector2Int, Room> coordToRoomMap;
+
     private class Room
     {
         public HashSet<Vector2Int> coords;
         public HashSet<Vector2Int> edgeCoords;
         public HashSet<Vector2Int> walls;
+        public HashSet<Vector2Int> doors;
         public Vector2Int startCoord { get; private set; }
         public Color color { get; private set; }
 
         public Room(Vector2Int startPosition)
         {
             walls = new HashSet<Vector2Int>();
+            doors = new HashSet<Vector2Int>();
             coords = new HashSet<Vector2Int> { startPosition };
             this.startCoord = startPosition;
             color = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 0.4f);
@@ -64,6 +70,20 @@ public class RoomGenerator : MonoBehaviour
         }
     }
 
+    private class Door
+    {
+        public Vector2Int position;
+        public Room roomA;
+        public Room roomB;
+
+        public Door(Vector2Int pos, Room a, Room b)
+        {
+            position = pos;
+            roomA = a;
+            roomB = b;
+        }
+    }
+
     void Start()
     {
         InitializeGrid();
@@ -73,6 +93,10 @@ public class RoomGenerator : MonoBehaviour
         //removing doulbe walls
         AttachDoubleWallsToRooms();
         foreach (Room room in rooms) room.SetEdges(this);
+
+        //Doors
+        //MapCoordsToRooms();
+        GenerateDoors();
     }
 
     void InitializeGrid()
@@ -217,6 +241,182 @@ public class RoomGenerator : MonoBehaviour
         }
     }
 
+    private void MapCoordsToRooms()
+    {
+        coordToRoomMap = new Dictionary<Vector2Int, Room>(roomSet.Count);
+        int roomAreas = 0;
+
+        foreach (Room room in rooms)
+        {
+            roomAreas += room.coords.Count;
+
+            foreach (Vector2Int coord in room.coords)
+            {
+                coordToRoomMap[coord] = room;
+            }
+        }
+
+        if (roomAreas != roomSet.Count) Debug.LogError($"Room set({roomSet.Count}) and room coords({roomAreas}) not synced!");
+    }
+
+    private void GenerateDoors()
+    {
+        List<Door> doors = CollectDoors();
+        ShuffleList(doors);
+
+        UnionFind<Room> unionFind = new UnionFind<Room>(rooms);
+        List<Door> selectedDoors = new List<Door>();
+
+        // Minimum spanning tree for connectivity
+        for (int i = 0; i < doors.Count; i++)
+        {
+            Door door = doors[i];
+            if (!unionFind.AreConnected(door.roomA, door.roomB))
+            {
+                unionFind.Union(door.roomA, door.roomB);
+                selectedDoors.Add(door);
+                if (unionFind.GetNumberOfSets() == 1) break;
+            }
+        }
+
+        // Random extra connections
+        int remaining = doors.Count - selectedDoors.Count;
+        int extraDoors = Mathf.FloorToInt(remaining * extraDoorChance); //TODO doors shouldn't be next to each other
+        for (int i = 0; i < extraDoors; i++)
+        {
+            int randomIndex = Random.Range(selectedDoors.Count, doors.Count);
+            selectedDoors.Add(doors[randomIndex]);
+        }
+
+        // Create door openings
+        for (int i = 0; i < selectedDoors.Count; i++)
+        {
+            Vector2Int doorPos = selectedDoors[i].position;
+            doorSet.Add(doorPos);
+            wallSet.Remove(doorPos);
+
+            for (int r = 0; r < rooms.Count; r++)
+            {
+                Room room = rooms[r];
+                if (room.walls.Contains(doorPos))
+                {
+                    room.walls.Remove(doorPos);
+                    room.doors.Add(doorPos);
+                }
+            }
+        }
+    }
+
+    private List<Door> CollectDoors()
+    {
+        List<Door> doors = new List<Door>();
+        HashSet<Vector2Int> processedWalls = new HashSet<Vector2Int>();
+
+        foreach (Vector2Int wall in wallSet)
+        {
+            if (processedWalls.Contains(wall)) continue;
+
+            List<Room> adjacentRooms = new List<Room>();
+            foreach (Vector2Int dir in GetCardinalDirections())
+            {
+                Vector2Int neighbor = wall + dir;
+                Room room = CoordinateToRoom(neighbor);
+
+                if (room != null && !adjacentRooms.Contains(room))
+                {
+                    adjacentRooms.Add(room);
+                }
+            }
+
+            if (adjacentRooms.Count >= 2)
+            {
+                for (int i = 0; i < adjacentRooms.Count; i++)
+                {
+                    for (int j = i + 1; j < adjacentRooms.Count; j++)
+                    {
+                        doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j]));
+                    }
+                }
+
+                processedWalls.Add(wall);
+            }
+        }
+        return doors;
+    }
+
+    // Union-Find implementation
+    public class UnionFind<T>
+    {
+        private Dictionary<T, T> parent;
+        private Dictionary<T, int> rank;
+        private int numSets;
+
+        public UnionFind(IEnumerable<T> elements)
+        {
+            parent = new Dictionary<T, T>();
+            rank = new Dictionary<T, int>();
+            numSets = 0;
+
+            foreach (T element in elements) MakeSet(element);
+        }
+
+        public void MakeSet(T element)
+        {
+            if (!parent.ContainsKey(element))
+            {
+                parent[element] = element;
+                rank[element] = 0;
+                numSets++;
+            }
+        }
+
+        public T Find(T element)
+        {
+            if (!parent[element].Equals(element))
+            {
+                parent[element] = Find(parent[element]);
+            }
+
+            return parent[element];
+        }
+
+        public void Union(T a, T b)
+        {
+            T rootA = Find(a);
+            T rootB = Find(b);
+
+            if (rootA.Equals(rootB)) return;
+
+            if (rank[rootA] < rank[rootB])
+            {
+                parent[rootA] = rootB;
+            }
+            else
+            {
+                parent[rootB] = rootA;
+                if (rank[rootA] == rank[rootB]) rank[rootA]++;
+            }
+            numSets--;
+        }
+
+        public bool AreConnected(T a, T b) => Find(a).Equals(Find(b));
+        public int GetNumberOfSets() => numSets;
+    }
+
+    //Helper methods
+
+    private void ShuffleList<T>(List<T> list)
+    {
+        int n = list.Count;
+        for (int i = 0; i < n; i++)
+        {
+            int r = i + Random.Range(0, n - i);
+            T value = list[r];
+            list[r] = list[i];
+            list[i] = value;
+        }
+    }
+
     private List<Vector2Int> GetOffsetDirections()
     {
         List<Vector2Int> offsetDirections = new List<Vector2Int>(8);
@@ -249,6 +449,12 @@ public class RoomGenerator : MonoBehaviour
     private bool IsWithinGrid(Vector2Int pos) => pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight;
 
     private bool IsGridEdge(Vector2Int pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
+
+    //private Room CoordinateToRoom(Vector2Int coord)
+    //{
+    //    coordToRoomMap.TryGetValue(coord, out Room room);
+    //    return room;
+    //}
 
     private Room CoordinateToRoom(Vector2Int coord)
     {
@@ -320,6 +526,17 @@ public class RoomGenerator : MonoBehaviour
             {
                 Gizmos.DrawCube(new Vector3(wall.x, 0f, wall.y), Vector3.one * 0.5f);
                 Gizmos.DrawWireCube(new Vector3(wall.x, 0f, wall.y), Vector3.one * 0.5f);
+            }
+        }
+
+        //doors
+        if (doorSet != null)
+        {
+            Gizmos.color = Color.blue * 2;
+            foreach (Vector2Int door in doorSet)
+            {
+                Gizmos.DrawCube(new Vector3(door.x, 0f, door.y), Vector3.one * 0.5f);
+                Gizmos.DrawWireCube(new Vector3(door.x, 0f, door.y), Vector3.one * 0.5f);
             }
         }
     }
