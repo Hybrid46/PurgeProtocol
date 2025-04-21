@@ -15,8 +15,8 @@ public class RoomGenerator : MonoBehaviour
     public int minRoomSizeY = 2;
     public int maxRoomSizeY = 10;
 
-    [SerializeField] private bool[,] grid;
-    [SerializeField] private List<Room> rooms = new List<Room>();
+    private bool[,] grid;
+    private List<Room> rooms = new List<Room>();
 
     private HashSet<Vector2Int> openSet;
     private HashSet<Vector2Int> wallSet = new HashSet<Vector2Int>();
@@ -53,7 +53,7 @@ public class RoomGenerator : MonoBehaviour
 
         private bool IsEdge(RoomGenerator roomGenerator, Vector2Int coord)
         {
-            foreach (Vector2Int offset in roomGenerator.GetOffsetDirections())
+            foreach (Vector2Int offset in roomGenerator.GetOffsetDirections()) //TODO should be cardinal?
             {
                 Vector2Int roomCoord = coord + offset;
                 if (!roomGenerator.IsWithinGrid(roomCoord)) return true;
@@ -71,6 +71,7 @@ public class RoomGenerator : MonoBehaviour
         GenerateRooms();
         foreach (Room room in rooms) room.SetEdges(this);
         AttachDoubleWallsToRooms();
+        foreach (Room room in rooms) room.SetEdges(this);
     }
 
     void InitializeGrid()

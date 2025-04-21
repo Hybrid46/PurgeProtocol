@@ -488,9 +488,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridWidth: 50
   gridHeight: 50
-  partitionsX: 5
-  partitionsY: 5
-  roomColors: []
+  minRoomSizeX: 2
+  maxRoomSizeX: 10
+  minRoomSizeY: 2
+  maxRoomSizeY: 10
 --- !u!4 &951034375
 Transform:
   m_ObjectHideFlags: 0
@@ -500,7 +501,7 @@ Transform:
   m_GameObject: {fileID: 951034372}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.38215256, y: -0.21445084, z: -0.22251034}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
