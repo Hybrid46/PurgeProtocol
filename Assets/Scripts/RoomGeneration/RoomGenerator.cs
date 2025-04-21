@@ -67,6 +67,7 @@ public class RoomGenerator : MonoBehaviour
     void Start()
     {
         InitializeGrid();
+        GenerateBorderWalls();
         GenerateRooms();
         foreach (Room room in rooms) room.SetEdges(this);
         AttachDoubleWallsToRooms();
@@ -83,6 +84,22 @@ public class RoomGenerator : MonoBehaviour
             {
                 grid[x, y] = false;
                 openSet.Add(new Vector2Int(x, y));
+            }
+        }
+    }
+
+    private void GenerateBorderWalls()
+    {
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                if (x == 0 || y == 0 || x == gridWidth - 1 || y == gridHeight - 1)
+                {
+                    grid[x, y] = true;
+                    openSet.Remove(new Vector2Int(x, y));
+                    wallSet.Add(new Vector2Int(x, y));
+                }
             }
         }
     }
@@ -276,17 +293,17 @@ public class RoomGenerator : MonoBehaviour
             Gizmos.color = Color.white;
             Gizmos.DrawSphere(new Vector3(room.startCoord.x, 0f, room.startCoord.y), 0.25f);
 
-        //room walls
-        //foreach (Room room in rooms)
-        //{
-        //    Gizmos.color = room.color;
+            //room walls
+            //foreach (Room room in rooms)
+            //{
+            //    Gizmos.color = room.color;
 
-        //    foreach (Vector2Int pos in room.walls)
-        //    {
-        //        Gizmos.DrawCube(new Vector3(pos.x, 1f, pos.y), Vector3.one);
-        //        Gizmos.DrawWireCube(new Vector3(pos.x, 1f, pos.y), Vector3.one);
-        //    }
-        //}
+            //    foreach (Vector2Int pos in room.walls)
+            //    {
+            //        Gizmos.DrawCube(new Vector3(pos.x, 1f, pos.y), Vector3.one);
+            //        Gizmos.DrawWireCube(new Vector3(pos.x, 1f, pos.y), Vector3.one);
+            //    }
+            //}
         }
 
         //walls
