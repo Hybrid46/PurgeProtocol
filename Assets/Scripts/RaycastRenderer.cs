@@ -29,6 +29,7 @@ public class RaycastRenderer : MonoBehaviour
 
     void Start()
     {
+        Application.targetFrameRate = 60;
         InitializeTexture();
         CreateMapTexture(GenerateMap());
         InitializeComputeShader();
