@@ -1,0 +1,135 @@
+#pragma kernel CSMain
+
+Texture2D<float> Map;
+Texture2D<float4> WallTex;
+Texture2D<float4> FloorTex;
+Texture2D<float4> CeilingTex;
+RWTexture2D<float4> Result;
+
+float2 playerPos;
+float2 playerDir;
+float2 cameraPlane;
+int2 mapSize;
+
+#define TEXTURE_SIZE 32
+#define FLOOR_SCALE 1.0
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint screenX = id.x;
+    if (screenX >= Result.Length.x)
+        return;
+
+    // Calculate ray direction
+    float cameraX = 2.0 * screenX / Result.Length.x - 1.0;
+    float2 rayDir = normalize(playerDir + cameraPlane * cameraX);
+
+    // DDA Algorithm
+    float2 rayStep = float2(
+        abs(1.0 / rayDir.x),
+        abs(1.0 / rayDir.y)
+    );
+    
+    int2 mapCell = int2(floor(playerPos));
+    float2 sideDist;
+    int2 step;
+    
+    step.x = rayDir.x < 0 ? -1 : 1;
+    sideDist.x = rayDir.x < 0 ?
+        (playerPos.x - mapCell.x) * rayStep.x :
+        (mapCell.x + 1.0 - playerPos.x) * rayStep.x;
+    
+    step.y = rayDir.y < 0 ? -1 : 1;
+    sideDist.y = rayDir.y < 0 ?
+        (playerPos.y - mapCell.y) * rayStep.y :
+        (mapCell.y + 1.0 - playerPos.y) * rayStep.y;
+
+    bool hit = false;
+    bool side = false;
+    
+    while (!hit && all(mapCell >= int2(0, 0)) && all(mapCell < mapSize))
+    {
+        if (sideDist.x < sideDist.y)
+        {
+            sideDist.x += rayStep.x;
+            mapCell.x += step.x;
+            side = false;
+        }
+        else
+        {
+            sideDist.y += rayStep.y;
+            mapCell.y += step.y;
+            side = true;
+        }
+        
+        if (Map.Load(int3(mapCell, 0)) > 0.5)
+            hit = true;
+    }
+
+    // Wall distance calculation
+    float distance = side ?
+        (mapCell.y - playerPos.y + (1 - step.y) * 0.5) / rayDir.y :
+        (mapCell.x - playerPos.x + (1 - step.x) * 0.5) / rayDir.x;
+    distance = abs(distance);
+    float cosTheta = dot(playerDir, rayDir);
+    float correctedDist = distance * cosTheta;
+
+    int lineHeight = (int) (Result.Length.y / correctedDist);
+    int drawStart = max((Result.Length.y - lineHeight) / 2, 0);
+    int drawEnd = min((Result.Length.y + lineHeight) / 2, Result.Length.y);
+
+    // Floor/ceiling fix
+    float2 correctedRayDir = rayDir / cosTheta; // Remove fisheye from floor rays
+
+    for (uint screenY = 0; screenY < Result.Length.y; screenY++)
+    {
+        float4 color = float4(0, 0, 0, 1);
+        
+        if (hit && screenY >= drawStart && screenY < drawEnd)
+        {
+            // Wall texturing (existing good implementation)
+            float wallX = side ?
+                playerPos.x + rayDir.x * distance :
+                playerPos.y + rayDir.y * distance;
+            wallX = frac(wallX);
+            
+            int2 texCoord = int2(
+                (int) (wallX * TEXTURE_SIZE) % TEXTURE_SIZE,
+                (int) (((screenY - drawStart) / (float) lineHeight) * TEXTURE_SIZE) % TEXTURE_SIZE
+            );
+            
+            color = WallTex.Load(int3(texCoord, 0));
+            color.rgb *= side ? 0.7 : 1.0;
+            color.rgb *= max(1.0 - correctedDist / 15.0, 0.3);
+        }
+        else
+        {
+            // Corrected floor/ceiling calculation
+            float floorZ = Result.Length.y / abs(Result.Length.y - 2.0 * screenY);
+            float2 floorPos = playerPos + correctedRayDir * floorZ;
+            
+            // Mirror texture for proper directional movement
+            float2 uv = floorPos * FLOOR_SCALE;
+            uv = float2(-uv.x, uv.y); // Fix direction inversion
+            
+            int2 texCoord = int2(
+                (int) (uv.x * TEXTURE_SIZE) % TEXTURE_SIZE,
+                (int) (uv.y * TEXTURE_SIZE) % TEXTURE_SIZE
+            );
+
+            // Sample with boundary wrapping
+            texCoord = (texCoord + TEXTURE_SIZE) % TEXTURE_SIZE;
+            
+            color = (screenY > Result.Length.y / 2) ?
+                FloorTex.Load(int3(texCoord, 0)) :
+                CeilingTex.Load(int3(texCoord, 0));
+            
+            // Improved distance calculation
+            float realDistance = length(float3(rayDir * floorZ, floorZ));
+            color.rgb *= max(1.0 - realDistance / 20.0, 0.4);
+        }
+
+        Result[uint2(screenX, screenY)] = color;
+    }
+}
