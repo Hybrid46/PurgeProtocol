@@ -12,7 +12,7 @@ Current Implementation
 
     A Doom-style software renderer using compute shaders:
 
-        ![RaycastRendering](RaycastRendering.png "RaycastRendering")
+![RaycastRendering](RaycastRendering.png "RaycastRendering")
         A retro-style raycasting engine with dynamic map generation and textured walls/floor/ceiling. Built with Unity's compute shaders for high-performance GPU rendering.
 
        Technical Highlights:  
@@ -20,6 +20,11 @@ Current Implementation
            - Signed distance field collision detection  
            - Affine texture mapping for floor/ceiling  
            - GPU-accelerated ray traversal 
+
+           - Texture-mapped walls, floor, and ceiling  
+           - Distance-based lighting and shading  
+           - Fish-eye correction for realistic perspective  
+           - Optimized DDA algorithm for raycasting 
 
        - **Arrow Keys**: Move forward/backward  
        - **Left/Right Arrows**: Rotate  
