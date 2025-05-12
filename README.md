@@ -10,6 +10,20 @@ This project is a procedural map generator built in Unity using C#. It creates a
 ## Features
 Current Implementation
 
+    A Doom-style software renderer using compute shaders:
+
+        ![RaycastRendering](RaycastRendering.png "RaycastRendering")
+        A retro-style raycasting engine with dynamic map generation and textured walls/floor/ceiling. Built with Unity's compute shaders for high-performance GPU rendering.
+
+       Technical Highlights:  
+           - Compute shader-based parallel rendering  
+           - Signed distance field collision detection  
+           - Affine texture mapping for floor/ceiling  
+           - GPU-accelerated ray traversal 
+
+       - **Arrow Keys**: Move forward/backward  
+       - **Left/Right Arrows**: Rotate  
+
     Grid-Based Room Generation:
 
         Randomly sized rooms placed within a configurable grid.
