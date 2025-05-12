@@ -122,8 +122,8 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             texCoord = (texCoord + TEXTURE_SIZE) % TEXTURE_SIZE;
             
             color = (screenY > Result.Length.y / 2) ?
-                FloorTex.Load(int3(texCoord, 0)) :
-                CeilingTex.Load(int3(texCoord, 0));
+                CeilingTex.Load(int3(texCoord, 0)) :
+                FloorTex.Load(int3(texCoord, 0));
             
             // Improved distance calculation
             float realDistance = length(float3(rayDir * floorZ, floorZ));
