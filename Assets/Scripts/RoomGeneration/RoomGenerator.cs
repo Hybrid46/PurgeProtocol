@@ -26,7 +26,7 @@ public class RoomGenerator : MonoBehaviour
 
     private HashSet<Vector2Int> removedDoubleWalls;
 
-    //TODO store on grid
+    //TODO store room number on grid as int
     private Dictionary<Vector2Int, Room> coordToRoomMap;
 
     private class Room
@@ -97,6 +97,14 @@ public class RoomGenerator : MonoBehaviour
         //Doors
         //MapCoordsToRooms();
         GenerateDoors();
+
+        GenerateRoomMeshes();
+    }
+
+    private void GenerateRoomMeshes()
+    {
+        foreach (FloorMeshGenerator meshGen in GetComponentsInChildren<FloorMeshGenerator>()) meshGen.GenerateFloorMesh(grid);
+        foreach (WallMeshGenerator meshGen in GetComponentsInChildren<WallMeshGenerator>()) meshGen.GenerateWallMesh(grid);
     }
 
     void InitializeGrid()
@@ -475,6 +483,8 @@ public class RoomGenerator : MonoBehaviour
 
         return default;
     }
+
+    public bool[,] GetGrid() => grid;
 
     void OnDrawGizmos()
     {
